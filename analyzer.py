@@ -89,8 +89,8 @@ def normalize_text(text):
 
 
 def contains_skill(text, skill):
-    pattern = r"\b" + re.escape(skill) + r"\b"
-    return bool(re.search(pattern, text))
+    skill = normalize_text(skill)
+    return skill in text
 
 
 def _read_file_bytes(file):
@@ -230,6 +230,39 @@ if uploaded_file is not None:
         st.warning(", ".join(recommended))
     else:
         st.success("No major skill gaps found")
+
+    st.subheader("Job Description Match")
+    job_description = st.text_area(
+        "Paste a target job description to compare against this resume",
+        height=220,
+        placeholder="Example: Senior Python developer with SQL, machine learning, AWS, and Git experience...",
+    )
+
+    if job_description:
+        normalized_job = normalize_text(job_description)
+        job_skills = sorted({skill for skill in all_skills if contains_skill(normalized_job, skill)})
+
+        if job_skills:
+            matched_skills = sorted({skill for skill in job_skills if skill in found_overall})
+            missing_from_resume = [skill for skill in job_skills if skill not in found_overall]
+            match_score = int((len(matched_skills) / len(job_skills)) * 100) if job_skills else 0
+
+            col_match_1, col_match_2, col_match_3 = st.columns([2, 1, 1])
+            with col_match_1:
+                st.progress(match_score / 100)
+                st.metric("Job Match Score", f"{match_score}%")
+            with col_match_2:
+                st.metric("Matched Skills", len(matched_skills))
+            with col_match_3:
+                st.metric("Missing for Job", len(missing_from_resume))
+
+            st.write("Matched skills:")
+            st.success(", ".join(matched_skills) if matched_skills else "None")
+
+            st.write("Skills missing from your resume for this job:")
+            st.error(", ".join(missing_from_resume) if missing_from_resume else "None")
+        else:
+            st.info("No matching skills were detected in the job description.")
 
     st.subheader("Raw Resume Preview")
     st.text_area("Extracted Resume Text", resume_text[:5000], height=250)
